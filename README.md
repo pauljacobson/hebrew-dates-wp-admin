@@ -19,7 +19,9 @@ The Hebrew calendar is lunisolar and doesn't align with the Gregorian calendar, 
 
 ## Screenshot
 
-*Widget displays in the WordPress Admin Dashboard with Hebrew date prominently shown, transliteration below, and any holidays/events listed.*
+![Hebrew Date Widget](docs/screenshot.png)
+
+*The widget displays in the WordPress Admin Dashboard with the Hebrew date prominently shown, transliteration below, and any holidays/events listed.*
 
 ## Installation
 
