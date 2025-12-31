@@ -89,8 +89,10 @@ The development followed a structured, plan-first approach:
 hebrew-dates-wp-admin/
 ├── plugin/                        # Distributable plugin (zip this folder)
 │   ├── hebrew-dates-admin.php     # Main plugin file
-│   └── includes/
-│       └── class-hebcal-api.php   # Hebcal API client with caching
+│   ├── includes/
+│   │   └── class-hebcal-api.php   # Hebcal API client with caching
+│   └── assets/
+│       └── icon.svg               # Hebrew calendar icon
 ├── docs/
 │   ├── hebrew-date-approaches.md  # Analysis of implementation options
 │   ├── implementation-plan.md     # Detailed development plan

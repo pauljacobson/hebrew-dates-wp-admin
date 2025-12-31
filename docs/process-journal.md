@@ -138,6 +138,37 @@
 
 ---
 
+### 2024-12-31: Visual Enhancements
+
+#### What I did
+- Increased Hebrew date font size from 1.5em to 2em for better visibility
+- Added Hebrew calendar icon ("לוח עברי") to the widget
+- Created SVG version of icon for crisp rendering at any size
+- Updated layout to use flexbox with `justify-content: space-around`
+- Positioned icon to the right of date text, with text centered in its own container
+- Added `assets/` directory to plugin for storing images
+
+#### What worked
+- SVG icon renders sharply at any display density (no fuzzy edges)
+- Flexbox `space-around` provides balanced visual layout
+- `plugin_dir_url()` correctly resolves asset paths in WordPress
+
+#### What didn't work
+- Initial PNG icon appeared fuzzy on high-DPI displays
+- Converted to SVG to resolve the clarity issue
+
+#### What I learned
+- SVG is preferred for icons in WordPress plugins - scales cleanly
+- `plugin_dir_url(__FILE__)` gives the URL path to plugin assets
+- Flexbox layout works well for dashboard widget styling
+
+#### AI Assistance
+- Claude Code created SVG icon matching the original PNG design
+- Updated widget layout code with proper flexbox structure
+- Maintained proper escaping (`esc_url()`) for asset URLs
+
+---
+
 ## Summary of Struggles and Solutions
 
 | Struggle | How I Solved It |
@@ -145,6 +176,7 @@
 | Choosing between Hebcal API, PHP built-in, or hybrid approach | Analyzed trade-offs; chose Hebcal API with aggressive caching for feature richness and simplicity |
 | Deciding on caching strategy (object cache vs transients) | Selected transients - works out-of-the-box without external dependencies |
 | Repository structure for development vs distribution | Created plugin/ subdirectory for clean separation; zip that folder to distribute |
+| PNG icon appeared fuzzy on high-DPI displays | Converted to SVG for resolution-independent rendering |
 
 ## Key Learnings
 
@@ -153,6 +185,8 @@
 3. `wp_remote_get()` is the correct way to make HTTP requests in plugins
 4. Hebcal API returns pre-formatted Hebrew strings, simplifying display logic
 5. Separating distributable files into a subdirectory simplifies packaging
+6. SVG icons are preferred over PNG for WordPress plugins - they scale cleanly on all displays
+7. `plugin_dir_url(__FILE__)` is the correct way to reference plugin assets in WordPress
 
 ## AI Tools Used
 
@@ -164,4 +198,6 @@
   - Generated plugin code with inline documentation
   - Applied WordPress security best practices
   - Suggested repository structure options
-  - Maintained process documentation
+  - Created SVG icon from PNG reference
+  - Implemented flexbox layout for widget styling
+  - Maintained process documentation throughout development

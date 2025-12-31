@@ -85,23 +85,43 @@ function hebrew_dates_admin_display_widget() {
 	$api    = new Hebcal_API();
 	$result = $api->get_hebrew_date();
 
+	// Get the URL to the plugin's assets directory for the icon.
+	$icon_url = plugin_dir_url( __FILE__ ) . 'assets/icon.svg';
+
 	// Start widget output.
 	echo '<div class="hebrew-date-widget">';
 
 	if ( $result['success'] ) {
+		// Main content area: flexbox layout with dates and icon spaced around.
+		echo '<div class="hebrew-date-content" style="display: flex; align-items: center; justify-content: space-around;">';
+
+		// Left side: Date text container (centered within its own space).
+		echo '<div class="hebrew-date-text" style="text-align: center;">';
+
 		// Primary display: Hebrew date in Hebrew characters.
-		// Using RTL direction and centered text for proper Hebrew display.
+		// Using RTL direction for proper Hebrew display.
 		printf(
-			'<p class="hebrew-date-primary" style="font-size: 1.5em; direction: rtl; text-align: center; margin: 0.5em 0; font-family: \'Times New Roman\', serif;">%s</p>',
+			'<p class="hebrew-date-primary" style="font-size: 2em; direction: rtl; margin: 0.25em 0; font-family: \'Times New Roman\', serif;">%s</p>',
 			esc_html( $result['hebrew'] )
 		);
 
 		// Secondary display: Transliterated Hebrew date.
 		// Smaller, muted text for those who prefer Latin characters.
 		printf(
-			'<p class="hebrew-date-transliterated" style="font-size: 1.1em; color: #666; text-align: center; margin: 0.5em 0;">%s</p>',
+			'<p class="hebrew-date-transliterated" style="font-size: 1.1em; color: #666; margin: 0.25em 0;">%s</p>',
 			esc_html( $result['transliterated'] )
 		);
+
+		echo '</div>'; // End .hebrew-date-text
+
+		// Right side: Calendar icon.
+		printf(
+			'<div class="hebrew-date-icon"><img src="%s" alt="%s" style="width: 64px; height: 64px;" /></div>',
+			esc_url( $icon_url ),
+			esc_attr__( 'Hebrew Calendar', 'hebrew-dates-admin' )
+		);
+
+		echo '</div>'; // End .hebrew-date-content
 
 		// Events display: Jewish holidays or special days.
 		// Only shown if there are events for today.
