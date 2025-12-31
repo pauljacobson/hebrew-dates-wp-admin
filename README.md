@@ -87,16 +87,27 @@ The development followed a structured, plan-first approach:
 
 ```
 hebrew-dates-wp-admin/
-├── hebrew-dates-admin.php     # Main plugin file (bootstrap, widget registration, display)
-├── includes/
-│   └── class-hebcal-api.php   # Hebcal API client with caching
+├── plugin/                        # Distributable plugin (zip this folder)
+│   ├── hebrew-dates-admin.php     # Main plugin file
+│   └── includes/
+│       └── class-hebcal-api.php   # Hebcal API client with caching
 ├── docs/
 │   ├── hebrew-date-approaches.md  # Analysis of implementation options
 │   ├── implementation-plan.md     # Detailed development plan
 │   └── process-journal.md         # Development log
-├── README.md                  # This file
-└── CLAUDE.md                  # Claude Code project guidance
+├── README.md                      # This file
+└── CLAUDE.md                      # Claude Code project guidance
 ```
+
+## Packaging for Distribution
+
+To create a distributable zip file:
+
+```bash
+cd plugin && zip -r ../hebrew-dates-admin.zip . && cd ..
+```
+
+Then upload `hebrew-dates-admin.zip` via WordPress Admin > Plugins > Add New > Upload Plugin.
 
 ## How It Works
 

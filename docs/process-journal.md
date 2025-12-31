@@ -112,21 +112,56 @@
 
 ---
 
+### 2024-12-31: Repository Restructuring
+
+#### What I did
+- Restructured repository to separate distributable plugin from development files
+- Created `plugin/` directory containing only the files needed for WordPress installation
+- Kept docs/, .claude/, README.md, CLAUDE.md at repository root
+- Added packaging instructions to README
+
+#### What worked
+- Clean separation makes it obvious what to zip for distribution
+- Simple one-line command to create distributable zip file
+- No build tools or complex packaging scripts needed
+
+#### What didn't work
+- N/A
+
+#### What I learned
+- Repository structure should consider both development workflow and distribution needs
+- Keeping plugin files in a subdirectory simplifies packaging without needing .distignore
+
+#### AI Assistance
+- Claude Code presented three options for repo structure with pros/cons
+- Recommended subdirectory approach as simplest for this project
+
+---
+
 ## Summary of Struggles and Solutions
 
 | Struggle | How I Solved It |
 |----------|-----------------|
-| [To be filled as challenges arise] | [Solutions] |
+| Choosing between Hebcal API, PHP built-in, or hybrid approach | Analyzed trade-offs; chose Hebcal API with aggressive caching for feature richness and simplicity |
+| Deciding on caching strategy (object cache vs transients) | Selected transients - works out-of-the-box without external dependencies |
+| Repository structure for development vs distribution | Created plugin/ subdirectory for clean separation; zip that folder to distribute |
 
 ## Key Learnings
 
-1. [To be filled as you progress]
-2.
-3.
+1. `wp_date()` respects WordPress timezone settings; `date()` uses server timezone
+2. WordPress transients handle expiration automatically - no cleanup needed
+3. `wp_remote_get()` is the correct way to make HTTP requests in plugins
+4. Hebcal API returns pre-formatted Hebrew strings, simplifying display logic
+5. Separating distributable files into a subdirectory simplifies packaging
 
 ## AI Tools Used
 
-- **Primary**: Claude Code with Opus 4.5 model
+- **Primary**: Claude Code with Opus 4.5 model (claude-opus-4-5-20251101)
 - **Tasks AI helped with**:
-  - Created project-specific development skill
-  - [Add more as you use AI assistance]
+  - Created project-specific development skill with references
+  - Analyzed Hebcal API documentation
+  - Evaluated implementation approaches with trade-off analysis
+  - Generated plugin code with inline documentation
+  - Applied WordPress security best practices
+  - Suggested repository structure options
+  - Maintained process documentation
