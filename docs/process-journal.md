@@ -4,13 +4,15 @@
 
 ### Why Hebrew Dates?
 
-[TODO: Document your reasoning for choosing this widget idea. Consider:]
-- Personal connection to the Hebrew calendar
-- Practical usefulness for target audience
-- Technical interest in calendar conversion
-- Simplicity while still being meaningful
+The Hebrew calendar is central to Jewish life and practice. Many WordPress users managing Jewish community sites, synagogues, schools, or personal blogs would benefit from seeing the Hebrew date at a glance when they log into their dashboard.
 
----
+The Hebrew calendar is lunisolar and doesn't align with the Gregorian calendar, making it genuinely useful to have this information readily visible. It's a practical feature that serves a real need while being simple enough to execute well within the project scope.
+
+### Getting Started
+
+My starting point was to create an empty repo at https://github.com/pauljacobson/hebrew-dates-wp-admin that I cloned to my laptop. I then ran `claude` and `/init` to initialize the Claude environment.
+
+A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agent-skills-for-wordpress/) was released just a couple days ago so I thought I'd take advantage of these skills to help me build the plugin based on best practices from our developers. I copied the skills into my repo's `.claude/skills` directory. I then shared the "Option 1: Dashboard Widget" description and both the "Your Plugin Must" and "Your Repo Must Include" requirements from the [AI Coders Program: Application Project P2 post](https://fusionp2.wordpress.com/2025/12/17/ai-coders-program-application-project/) and asked Claude to help create a project-specific skill that will help guide my plugin development in such a way that it aligns with the WordPress agent skills and the project specifications.
 
 ## Development Log
 
@@ -38,8 +40,6 @@
   - Create the custom development skill with comprehensive documentation
   - Generate reference materials for workflow, security, and README template
   - Set up the process journal structure
-
----
 
 ### 2024-12-31: Planning & API Research
 
@@ -70,8 +70,6 @@
 - Claude Code analyzed the Hebcal API documentation
 - Helped evaluate trade-offs between three implementation approaches
 - Created implementation plan with caching strategy
-
----
 
 ### 2024-12-31: Core Plugin Implementation
 
@@ -110,8 +108,6 @@
 - Implemented security measures (ABSPATH checks, output escaping)
 - Used WordPress HTTP API correctly (`wp_remote_get`, `wp_remote_retrieve_body`)
 
----
-
 ### 2024-12-31: Repository Restructuring
 
 #### What I did
@@ -135,8 +131,6 @@
 #### AI Assistance
 - Claude Code presented three options for repo structure with pros/cons
 - Recommended subdirectory approach as simplest for this project
-
----
 
 ### 2024-12-31: Visual Enhancements
 
@@ -166,8 +160,6 @@
 - Claude Code created SVG icon matching the original PNG design
 - Updated widget layout code with proper flexbox structure
 - Maintained proper escaping (`esc_url()`) for asset URLs
-
----
 
 ## Summary of Struggles and Solutions
 
