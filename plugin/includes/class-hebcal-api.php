@@ -20,15 +20,21 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Fetches and caches Hebrew date information from the Hebcal converter API.
  *
  * ## How it works:
- * 1. Checks for cached data in WordPress transients (24-hour cache)
- * 2. If no cache, fetches from Hebcal API using WordPress HTTP API
- * 3. Parses JSON response and extracts Hebrew date, transliteration, and events
- * 4. Caches successful responses for 24 hours
- * 5. Returns structured array with date information or error state
+ * 1. Determines if current time is before or after sunset (Hebrew day boundary)
+ * 2. Checks for cached data in WordPress transients (separate caches for day/evening)
+ * 3. If no cache, fetches from Hebcal API with gs=on parameter when after sunset
+ * 4. Parses JSON response and extracts Hebrew date, transliteration, and events
+ * 5. Caches successful results (up to 2 API calls per day: one for day, one for evening)
+ * 6. Returns structured array with date information or error state
  *
- * ## Why 24-hour caching:
- * - Hebrew date only changes once per day (at sunset, technically)
- * - Reduces API calls to ~1 per day per site
+ * ## Sunset-aware behavior:
+ * - Hebrew dates begin at sunset, not midnight
+ * - Uses PHP's date_sunset() to calculate sunset for the configured location
+ * - Default location is Jerusalem; customizable via WordPress filters
+ * - Maintains separate cache entries for before/after sunset
+ *
+ * ## Caching strategy:
+ * - Up to 2 API calls per day per site (before sunset + after sunset)
  * - Provides resilience if Hebcal API is temporarily unavailable
  * - Well within Hebcal's rate limit (90 requests/10 seconds)
  */
@@ -56,9 +62,29 @@ class Hebcal_API {
 	const CACHE_KEY_PREFIX = 'hebrew_date_';
 
 	/**
+	 * Default latitude for sunset calculation (Jerusalem).
+	 *
+	 * Can be overridden with the 'hebrew_dates_admin_latitude' filter.
+	 *
+	 * @var float
+	 */
+	const DEFAULT_LATITUDE = 31.7683;
+
+	/**
+	 * Default longitude for sunset calculation (Jerusalem).
+	 *
+	 * Can be overridden with the 'hebrew_dates_admin_longitude' filter.
+	 *
+	 * @var float
+	 */
+	const DEFAULT_LONGITUDE = 35.2137;
+
+	/**
 	 * Get the Hebrew date for today.
 	 *
 	 * Returns cached data if available, otherwise fetches from API.
+	 * Accounts for the Hebrew day beginning at sunset by checking
+	 * the current time against sunset and requesting the appropriate date.
 	 *
 	 * @return array {
 	 *     Hebrew date information.
@@ -74,18 +100,21 @@ class Hebcal_API {
 		// Get today's date in site's timezone.
 		$today = $this->get_today_date();
 
-		// Check cache first.
-		$cached = $this->get_cached_date( $today );
+		// Determine if we're after sunset (Hebrew day has advanced).
+		$after_sunset = $this->is_after_sunset();
+
+		// Check cache first (separate caches for before/after sunset).
+		$cached = $this->get_cached_date( $today, $after_sunset );
 		if ( false !== $cached ) {
 			return $cached;
 		}
 
-		// Fetch from API.
-		$result = $this->fetch_from_api( $today );
+		// Fetch from API with sunset awareness.
+		$result = $this->fetch_from_api( $today, $after_sunset );
 
 		// Cache successful results.
 		if ( $result['success'] ) {
-			$this->cache_date( $today, $result );
+			$this->cache_date( $today, $after_sunset, $result );
 		}
 
 		return $result;
@@ -109,24 +138,47 @@ class Hebcal_API {
 	/**
 	 * Get cached Hebrew date data.
 	 *
-	 * @param string $date Date in YYYY-MM-DD format.
+	 * Uses separate cache keys for before/after sunset to ensure
+	 * the correct Hebrew date is returned based on time of day.
+	 *
+	 * @param string $date         Date in YYYY-MM-DD format.
+	 * @param bool   $after_sunset Whether current time is after sunset.
 	 * @return array|false Cached data array or false if not cached.
 	 */
-	private function get_cached_date( $date ) {
-		$cache_key = self::CACHE_KEY_PREFIX . $date;
+	private function get_cached_date( $date, $after_sunset ) {
+		$cache_key = $this->build_cache_key( $date, $after_sunset );
 		return get_transient( $cache_key );
 	}
 
 	/**
 	 * Cache Hebrew date data.
 	 *
-	 * @param string $date Date in YYYY-MM-DD format.
-	 * @param array  $data Data to cache.
+	 * Stores data with a cache key that includes the sunset state,
+	 * ensuring before-sunset and after-sunset dates are cached separately.
+	 *
+	 * @param string $date         Date in YYYY-MM-DD format.
+	 * @param bool   $after_sunset Whether current time is after sunset.
+	 * @param array  $data         Data to cache.
 	 * @return bool True if cached successfully.
 	 */
-	private function cache_date( $date, $data ) {
-		$cache_key = self::CACHE_KEY_PREFIX . $date;
+	private function cache_date( $date, $after_sunset, $data ) {
+		$cache_key = $this->build_cache_key( $date, $after_sunset );
 		return set_transient( $cache_key, $data, self::CACHE_DURATION );
+	}
+
+	/**
+	 * Build a cache key that includes sunset state.
+	 *
+	 * Creates unique cache keys for before/after sunset to ensure
+	 * the correct Hebrew date is served throughout the day.
+	 *
+	 * @param string $date         Date in YYYY-MM-DD format.
+	 * @param bool   $after_sunset Whether current time is after sunset.
+	 * @return string Cache key for WordPress transient.
+	 */
+	private function build_cache_key( $date, $after_sunset ) {
+		$suffix = $after_sunset ? '_evening' : '_day';
+		return self::CACHE_KEY_PREFIX . $date . $suffix;
 	}
 
 	/**
@@ -135,19 +187,31 @@ class Hebcal_API {
 	 * Uses WordPress HTTP API (wp_remote_get) for the request,
 	 * which handles SSL, timeouts, and redirects properly.
 	 *
-	 * @param string $date Date in YYYY-MM-DD format.
+	 * When $after_sunset is true, adds the 'gs=on' parameter to the API
+	 * request, which tells Hebcal to return the Hebrew date that began
+	 * at sunset (i.e., the next Hebrew day).
+	 *
+	 * @param string $date         Date in YYYY-MM-DD format.
+	 * @param bool   $after_sunset Whether current time is after sunset.
 	 * @return array Result array with success status and data or error.
 	 */
-	private function fetch_from_api( $date ) {
+	private function fetch_from_api( $date, $after_sunset = false ) {
 		// Build API URL with parameters.
-		$url = add_query_arg(
-			array(
-				'cfg'  => 'json',  // Response format.
-				'date' => $date,   // Gregorian date to convert.
-				'g2h'  => '1',     // Gregorian to Hebrew conversion.
-			),
-			self::API_BASE_URL
+		$params = array(
+			'cfg'  => 'json',  // Response format.
+			'date' => $date,   // Gregorian date to convert.
+			'g2h'  => '1',     // Gregorian to Hebrew conversion.
 		);
+
+		// Add sunset parameter when after sunset.
+		// The 'gs=on' parameter tells Hebcal that the query is for
+		// after sunset, so it returns the Hebrew date that began at sunset
+		// (which is one day ahead of the daytime Hebrew date).
+		if ( $after_sunset ) {
+			$params['gs'] = 'on';
+		}
+
+		$url = add_query_arg( $params, self::API_BASE_URL );
 
 		// Make the API request.
 		// wp_remote_get() is the WordPress way to make HTTP requests.
@@ -209,5 +273,50 @@ class Hebcal_API {
 			'transliterated' => $transliterated,
 			'events'        => isset( $data['events'] ) ? $data['events'] : array(),
 		);
+	}
+
+	/**
+	 * Determine if current time is after sunset.
+	 *
+	 * Uses PHP's date_sunset() function to calculate sunset time based on
+	 * geographic coordinates. The Hebrew day begins at sunset, so after
+	 * sunset the Hebrew date advances to the next day.
+	 *
+	 * Location coordinates default to Jerusalem but can be customized using
+	 * the 'hebrew_dates_admin_latitude' and 'hebrew_dates_admin_longitude'
+	 * filters for sites serving users in different locations.
+	 *
+	 * @return bool True if current time is after sunset, false otherwise.
+	 */
+	private function is_after_sunset() {
+		// Get location coordinates, allowing customization via filters.
+		// Default is Jerusalem (31.7683°N, 35.2137°E).
+		$latitude  = apply_filters( 'hebrew_dates_admin_latitude', self::DEFAULT_LATITUDE );
+		$longitude = apply_filters( 'hebrew_dates_admin_longitude', self::DEFAULT_LONGITUDE );
+
+		// Get current time in WordPress timezone.
+		$timezone = wp_timezone();
+		$now      = new DateTime( 'now', $timezone );
+
+		// Calculate sunset timestamp for today at the specified location.
+		// SUNFUNCS_RET_TIMESTAMP returns Unix timestamp.
+		// We use the current timestamp as the base date for calculation.
+		$sunset_timestamp = date_sunset(
+			$now->getTimestamp(),
+			SUNFUNCS_RET_TIMESTAMP,
+			$latitude,
+			$longitude,
+			// Zenith: 90°50' is the standard definition for sunset
+			// (when the sun's upper edge disappears below the horizon).
+			90.833333
+		);
+
+		// If sunset calculation fails (e.g., polar regions), default to false.
+		// This ensures we don't incorrectly advance the date.
+		if ( false === $sunset_timestamp ) {
+			return false;
+		}
+
+		return $now->getTimestamp() >= $sunset_timestamp;
 	}
 }
