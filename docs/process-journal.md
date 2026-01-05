@@ -30,6 +30,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 
 #### What didn't work
 - I noticed that using AI to modify the UX of the plugin can be a bit tricky and requires fairly careful prompting to get the desired results.
+- I also noticed that Claude Code doesn't automatically use versioning for new plugin builds (as in the plugin version numbers). I haven't added this functionality yet, but it's something to consider for future iterations.
 
 #### What I learned
 - Claude Code skills can be project-specific and help maintain consistency
