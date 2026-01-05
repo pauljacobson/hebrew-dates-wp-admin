@@ -29,7 +29,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 - Having reference files for workflow, security, and README template
 
 #### What didn't work
-- [Note any issues encountered during setup]
+- I noticed that using AI to modify the UX of the plugin can be a bit tricky and requires fairly careful prompting to get the desired results.
 
 #### What I learned
 - Claude Code skills can be project-specific and help maintain consistency
