@@ -29,8 +29,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 - Having reference files for workflow, security, and README template
 
 #### What didn't work
-- I noticed that using AI to modify the UX of the plugin can be a bit tricky and requires fairly careful prompting to get the desired results.
-- I also noticed that Claude Code doesn't automatically use versioning for new plugin builds (as in the plugin version numbers). I haven't added this functionality yet, but it's something to consider for future iterations.
+- This part of the process went smoothly and I didn't encounter any noticeable issues.
 
 #### What I learned
 - Claude Code skills can be project-specific and help maintain consistency
@@ -95,7 +94,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 - Inline styles keep the widget self-contained (no separate CSS file needed)
 
 #### What didn't work
-- N/A - implementation went smoothly following the plan
+- I noticed that Claude Code doesn't automatically use versioning for new plugin builds (as in the plugin version numbers). I haven't added this functionality yet, but it's something to consider for future iterations.
 
 #### What I learned
 - `wp_date()` is preferred over `date()` for timezone-aware WordPress development
@@ -151,6 +150,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 #### What didn't work
 - Initial PNG icon appeared fuzzy on high-DPI displays
 - Converted to SVG to resolve the clarity issue
+- I noticed that using AI to modify the UX of the plugin can be a bit tricky and requires fairly careful prompting to get the desired results.
 
 #### What I learned
 - SVG is preferred for icons in WordPress plugins - scales cleanly
