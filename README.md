@@ -13,7 +13,9 @@ The Hebrew calendar is lunisolar and doesn't align with the Gregorian calendar, 
 - Displays the current Hebrew date in Hebrew characters (e.g., "א׳ בְּטֵבֵת תשפ״ה")
 - Shows transliterated date below for accessibility (e.g., "1 Tevet 5785")
 - Displays Jewish holidays and events when applicable
-- Respects WordPress timezone settings
+- **Sunset-aware**: Hebrew date advances at sunset (when the Jewish day begins), not at midnight
+- **Location-aware**: Sunset time is automatically calculated based on your WordPress timezone setting
+- Respects WordPress timezone settings and DST automatically
 - Caches API responses for 24 hours for performance
 - Graceful error handling when API is unavailable
 
@@ -117,11 +119,35 @@ Then upload `hebrew-dates-admin.zip` via WordPress Admin > Plugins > Add New > U
 
 1. **On dashboard load**: Plugin hooks into `wp_dashboard_setup` to register the widget
 2. **Widget display**: Callback function instantiates `Hebcal_API` class
-3. **Cache check**: Class checks for cached data in WordPress transients
-4. **API call** (if needed): Fetches from `https://www.hebcal.com/converter` with current date
-5. **Response parsing**: Extracts Hebrew string, builds transliterated string, captures events
-6. **Caching**: Stores successful response for 24 hours
-7. **Output**: Renders escaped HTML with Hebrew date, transliteration, and any events
+3. **Sunset calculation**: Determines if it's after sunset using coordinates derived from WordPress timezone (Hebrew days begin at sunset)
+4. **Cache check**: Class checks for cached data in WordPress transients (separate caches for before/after sunset)
+5. **API call** (if needed): Fetches from `https://www.hebcal.com/converter` with current date and sunset flag if applicable
+6. **Response parsing**: Extracts Hebrew string, builds transliterated string, captures events
+7. **Caching**: Stores successful response for 24 hours
+8. **Output**: Renders escaped HTML with Hebrew date, transliteration, and any events
+
+## Location & Sunset Calculation
+
+The plugin automatically determines your location from your WordPress timezone setting (`Settings > General > Timezone`). This is used to calculate sunset time accurately for your area.
+
+- **Named timezones** (e.g., "America/New_York", "Europe/London"): Coordinates are automatically derived from PHP's timezone database
+- **UTC offsets** (e.g., "UTC+2"): Falls back to Jerusalem coordinates since UTC offsets have no geographic location
+- **DST handling**: Daylight Saving Time is handled automatically by PHP's DateTime functions
+
+### Advanced: Custom Location
+
+For precise control over the sunset calculation location, you can use WordPress filters:
+
+```php
+// Set exact coordinates (e.g., for a specific synagogue location)
+add_filter( 'hebrew_dates_admin_latitude', function() {
+    return 40.7128; // New York City
+});
+
+add_filter( 'hebrew_dates_admin_longitude', function() {
+    return -74.0060;
+});
+```
 
 ## Security
 

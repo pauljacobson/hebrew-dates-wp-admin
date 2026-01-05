@@ -162,6 +162,35 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 - Updated widget layout code with proper flexbox structure
 - Maintained proper escaping (`esc_url()`) for asset URLs
 
+### 2025-01-05: Timezone-Based Sunset Calculation
+
+#### What I did
+- Implemented automatic location detection from WordPress timezone setting
+- Replaced hardcoded Jerusalem coordinates with dynamic lookup using PHP's `DateTimeZone::getLocation()`
+- Updated class documentation to reflect new behavior
+- Renamed constants from `DEFAULT_*` to `FALLBACK_*` to better reflect their purpose
+
+#### What worked
+- PHP's `DateTimeZone::getLocation()` provides latitude/longitude for all IANA timezones
+- This automatically covers 400+ timezone locations without maintaining a hardcoded mapping
+- DST is handled automatically by PHP's DateTime functions
+- Filter hooks still work for users who need precise coordinate control
+
+#### What didn't work
+- Initially considered creating a large hardcoded timezone-to-coordinates mapping array
+- Realized PHP already has this data built into the `DateTimeZone` class
+
+#### What I learned
+- `DateTimeZone::getLocation()` returns geographic data (latitude, longitude, country_code) for named timezones
+- UTC offset timezones (e.g., "UTC+2") have no geographic location and return false
+- The IANA timezone database that PHP uses is the same one WordPress uses for its timezone dropdown
+
+#### AI Assistance
+- Claude Code analyzed the existing sunset calculation code
+- Identified the mismatch between timezone (New York) and coordinates (Jerusalem)
+- Suggested using `DateTimeZone::getLocation()` instead of a hardcoded mapping
+- Implemented the solution with proper fallback handling and documentation
+
 ## Summary of Struggles and Solutions
 
 | Struggle | How I Solved It |
@@ -170,6 +199,7 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 | Deciding on caching strategy (object cache vs transients) | Selected transients - works out-of-the-box without external dependencies |
 | Repository structure for development vs distribution | Created plugin/ subdirectory for clean separation; zip that folder to distribute |
 | PNG icon appeared fuzzy on high-DPI displays | Converted to SVG for resolution-independent rendering |
+| Sunset calculated for Jerusalem regardless of site timezone | Used `DateTimeZone::getLocation()` to derive coordinates from WordPress timezone automatically |
 
 ## Key Learnings
 
@@ -180,6 +210,8 @@ A set of [Agent Skills for WordPress](https://aip2.wordpress.com/2025/12/29/agen
 5. Separating distributable files into a subdirectory simplifies packaging
 6. SVG icons are preferred over PNG for WordPress plugins - they scale cleanly on all displays
 7. `plugin_dir_url(__FILE__)` is the correct way to reference plugin assets in WordPress
+8. `DateTimeZone::getLocation()` provides geographic coordinates for IANA timezones - no need for hardcoded mappings
+9. PHP's DateTime functions handle DST automatically when using proper timezone objects
 
 ## AI Tools Used
 

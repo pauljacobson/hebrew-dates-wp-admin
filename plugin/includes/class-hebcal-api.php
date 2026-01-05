@@ -29,9 +29,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * ## Sunset-aware behavior:
  * - Hebrew dates begin at sunset, not midnight
- * - Uses PHP's date_sunset() to calculate sunset for the configured location
- * - Default location is Jerusalem; customizable via WordPress filters
+ * - Uses PHP's date_sunset() to calculate sunset for the site's location
+ * - Location is automatically derived from WordPress timezone setting
+ *   using PHP's DateTimeZone::getLocation() for accurate coordinates
+ * - Falls back to Jerusalem for UTC offset timezones (e.g., "UTC+2")
+ * - Coordinates can be overridden via WordPress filters for precise control
  * - Maintains separate cache entries for before/after sunset
+ * - DST is handled automatically by PHP's DateTime functions
  *
  * ## Caching strategy:
  * - Up to 2 API calls per day per site (before sunset + after sunset)
@@ -62,22 +66,24 @@ class Hebcal_API {
 	const CACHE_KEY_PREFIX = 'hebrew_date_';
 
 	/**
-	 * Default latitude for sunset calculation (Jerusalem).
+	 * Fallback latitude for sunset calculation (Jerusalem).
 	 *
+	 * Used when timezone location cannot be determined (e.g., UTC offsets).
 	 * Can be overridden with the 'hebrew_dates_admin_latitude' filter.
 	 *
 	 * @var float
 	 */
-	const DEFAULT_LATITUDE = 31.7683;
+	const FALLBACK_LATITUDE = 31.7683;
 
 	/**
-	 * Default longitude for sunset calculation (Jerusalem).
+	 * Fallback longitude for sunset calculation (Jerusalem).
 	 *
+	 * Used when timezone location cannot be determined (e.g., UTC offsets).
 	 * Can be overridden with the 'hebrew_dates_admin_longitude' filter.
 	 *
 	 * @var float
 	 */
-	const DEFAULT_LONGITUDE = 35.2137;
+	const FALLBACK_LONGITUDE = 35.2137;
 
 	/**
 	 * Get the Hebrew date for today.
@@ -282,21 +288,28 @@ class Hebcal_API {
 	 * geographic coordinates. The Hebrew day begins at sunset, so after
 	 * sunset the Hebrew date advances to the next day.
 	 *
-	 * Location coordinates default to Jerusalem but can be customized using
-	 * the 'hebrew_dates_admin_latitude' and 'hebrew_dates_admin_longitude'
-	 * filters for sites serving users in different locations.
+	 * Location coordinates are automatically derived from the WordPress
+	 * timezone setting using PHP's DateTimeZone::getLocation(). This ensures
+	 * sunset is calculated for the site's configured location. DST is handled
+	 * automatically by PHP's DateTime functions.
+	 *
+	 * Coordinates can be overridden using the 'hebrew_dates_admin_latitude'
+	 * and 'hebrew_dates_admin_longitude' filters for precise control.
 	 *
 	 * @return bool True if current time is after sunset, false otherwise.
 	 */
 	private function is_after_sunset() {
-		// Get location coordinates, allowing customization via filters.
-		// Default is Jerusalem (31.7683°N, 35.2137°E).
-		$latitude  = apply_filters( 'hebrew_dates_admin_latitude', self::DEFAULT_LATITUDE );
-		$longitude = apply_filters( 'hebrew_dates_admin_longitude', self::DEFAULT_LONGITUDE );
-
 		// Get current time in WordPress timezone.
+		// DateTime automatically handles DST based on the timezone's rules.
 		$timezone = wp_timezone();
 		$now      = new DateTime( 'now', $timezone );
+
+		// Get coordinates from the WordPress timezone.
+		$coordinates = $this->get_timezone_coordinates( $timezone );
+
+		// Allow filter overrides for precise location control.
+		$latitude  = apply_filters( 'hebrew_dates_admin_latitude', $coordinates['latitude'] );
+		$longitude = apply_filters( 'hebrew_dates_admin_longitude', $coordinates['longitude'] );
 
 		// Calculate sunset timestamp for today at the specified location.
 		// SUNFUNCS_RET_TIMESTAMP returns Unix timestamp.
@@ -318,5 +331,49 @@ class Hebcal_API {
 		}
 
 		return $now->getTimestamp() >= $sunset_timestamp;
+	}
+
+	/**
+	 * Get geographic coordinates from a timezone.
+	 *
+	 * Uses PHP's DateTimeZone::getLocation() to retrieve the latitude and
+	 * longitude associated with a timezone. This method leverages the IANA
+	 * timezone database which includes geographic data for named timezones.
+	 *
+	 * Falls back to Jerusalem coordinates for:
+	 * - UTC offset timezones (e.g., "UTC+2") which have no geographic location
+	 * - Any timezone where getLocation() fails or returns invalid data
+	 *
+	 * @param DateTimeZone $timezone The timezone to get coordinates for.
+	 * @return array {
+	 *     Geographic coordinates.
+	 *
+	 *     @type float $latitude  Degrees north (negative for south).
+	 *     @type float $longitude Degrees east (negative for west).
+	 * }
+	 */
+	private function get_timezone_coordinates( $timezone ) {
+		// Default to Jerusalem (fallback for UTC offsets or failures).
+		$coordinates = array(
+			'latitude'  => self::FALLBACK_LATITUDE,
+			'longitude' => self::FALLBACK_LONGITUDE,
+		);
+
+		// Attempt to get location from the timezone.
+		// getLocation() returns an array with 'latitude', 'longitude',
+		// 'country_code', and 'comments' for named timezones.
+		// Returns false for UTC offset timezones like "UTC+2".
+		$location = $timezone->getLocation();
+
+		if ( is_array( $location ) && isset( $location['latitude'], $location['longitude'] ) ) {
+			// Validate that we have reasonable coordinates.
+			// Latitude: -90 to 90, Longitude: -180 to 180.
+			if ( abs( $location['latitude'] ) <= 90 && abs( $location['longitude'] ) <= 180 ) {
+				$coordinates['latitude']  = (float) $location['latitude'];
+				$coordinates['longitude'] = (float) $location['longitude'];
+			}
+		}
+
+		return $coordinates;
 	}
 }
