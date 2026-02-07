@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * ## Sunset-aware behavior:
  * - Hebrew dates begin at sunset, not midnight
- * - Uses PHP's date_sunset() to calculate sunset for the site's location
+ * - Uses PHP's date_sun_info() to calculate sunset for the site's location
  * - Location is automatically derived from WordPress timezone setting
  *   using PHP's DateTimeZone::getLocation() for accurate coordinates
  * - Falls back to Jerusalem for UTC offset timezones (e.g., "UTC+2")
@@ -84,6 +84,39 @@ class Hebcal_API {
 	 * @var float
 	 */
 	const FALLBACK_LONGITUDE = 35.2137;
+
+	/**
+	 * Maximum allowed API response size in bytes (16 KB).
+	 *
+	 * Hebcal converter responses are typically under 1 KB.
+	 * This limit provides generous headroom while protecting against
+	 * unexpectedly large or malformed responses consuming memory.
+	 *
+	 * @var int
+	 */
+	const MAX_RESPONSE_SIZE = 16384;
+
+	/**
+	 * Maximum number of events to retain from the API response.
+	 *
+	 * A single Hebrew date rarely has more than a handful of events
+	 * (e.g., Shabbat + a holiday). This cap prevents an unexpectedly
+	 * large events array from being cached and rendered.
+	 *
+	 * @var int
+	 */
+	const MAX_EVENTS = 10;
+
+	/**
+	 * Maximum allowed length for a single event string (200 characters).
+	 *
+	 * Event names from Hebcal are short descriptive strings (e.g.,
+	 * "Chanukah: 3 Candles"). This cap protects against unexpected
+	 * data from the API being stored or rendered.
+	 *
+	 * @var int
+	 */
+	const MAX_EVENT_LENGTH = 200;
 
 	/**
 	 * Get the Hebrew date for today.
@@ -253,13 +286,36 @@ class Hebcal_API {
 
 		// Parse JSON response.
 		$body = wp_remote_retrieve_body( $response );
+
+		// Reject oversized responses before parsing.
+		// Hebcal converter responses are typically under 1 KB; anything
+		// significantly larger is unexpected and could indicate a problem
+		// with the upstream service or a tampered response.
+		if ( strlen( $body ) > self::MAX_RESPONSE_SIZE ) {
+			return array(
+				'success' => false,
+				'error'   => __( 'API response exceeded maximum allowed size', 'hebrew-dates-admin' ),
+			);
+		}
+
 		$data = json_decode( $body, true );
 
 		// Validate response structure.
+		// We check for the required fields that we use: 'hebrew' for the
+		// Hebrew-character date string, and the component fields for
+		// building the transliterated version.
 		if ( ! is_array( $data ) || ! isset( $data['hebrew'] ) ) {
 			return array(
 				'success' => false,
 				'error'   => __( 'Invalid API response format', 'hebrew-dates-admin' ),
+			);
+		}
+
+		// Validate that the Hebrew date string is actually a string.
+		if ( ! is_string( $data['hebrew'] ) ) {
+			return array(
+				'success' => false,
+				'error'   => __( 'Invalid API response: hebrew field is not a string', 'hebrew-dates-admin' ),
 			);
 		}
 
@@ -268,23 +324,50 @@ class Hebcal_API {
 		$transliterated = sprintf(
 			'%d %s %d',
 			isset( $data['hd'] ) ? (int) $data['hd'] : 0,
-			isset( $data['hm'] ) ? $data['hm'] : '',
+			isset( $data['hm'] ) ? sanitize_text_field( (string) $data['hm'] ) : '',
 			isset( $data['hy'] ) ? (int) $data['hy'] : 0
 		);
 
+		// Sanitize events: enforce string type, cap count and length.
+		// The Hebcal API returns events as a simple array of strings
+		// (e.g., ["Chanukah: 3 Candles", "Rosh Chodesh Tevet"]).
+		// We filter out any non-string entries and truncate excessively
+		// long values to protect against malformed upstream data.
+		$events = array();
+		if ( isset( $data['events'] ) && is_array( $data['events'] ) ) {
+			foreach ( $data['events'] as $event ) {
+				// Skip non-string entries entirely.
+				if ( ! is_string( $event ) ) {
+					continue;
+				}
+
+				// Truncate overly long event strings.
+				if ( mb_strlen( $event, 'UTF-8' ) > self::MAX_EVENT_LENGTH ) {
+					$event = mb_substr( $event, 0, self::MAX_EVENT_LENGTH, 'UTF-8' );
+				}
+
+				$events[] = $event;
+
+				// Stop collecting once we hit the cap.
+				if ( count( $events ) >= self::MAX_EVENTS ) {
+					break;
+				}
+			}
+		}
+
 		// Return structured result.
 		return array(
-			'success'       => true,
-			'hebrew'        => $data['hebrew'],
+			'success'        => true,
+			'hebrew'         => $data['hebrew'],
 			'transliterated' => $transliterated,
-			'events'        => isset( $data['events'] ) ? $data['events'] : array(),
+			'events'         => $events,
 		);
 	}
 
 	/**
 	 * Determine if current time is after sunset.
 	 *
-	 * Uses PHP's date_sunset() function to calculate sunset time based on
+	 * Uses PHP's date_sun_info() function to calculate sunset time based on
 	 * geographic coordinates. The Hebrew day begins at sunset, so after
 	 * sunset the Hebrew date advances to the next day.
 	 *
@@ -311,26 +394,21 @@ class Hebcal_API {
 		$latitude  = apply_filters( 'hebrew_dates_admin_latitude', $coordinates['latitude'] );
 		$longitude = apply_filters( 'hebrew_dates_admin_longitude', $coordinates['longitude'] );
 
-		// Calculate sunset timestamp for today at the specified location.
-		// SUNFUNCS_RET_TIMESTAMP returns Unix timestamp.
-		// We use the current timestamp as the base date for calculation.
-		$sunset_timestamp = date_sunset(
-			$now->getTimestamp(),
-			SUNFUNCS_RET_TIMESTAMP,
-			$latitude,
-			$longitude,
-			// Zenith: 90°50' is the standard definition for sunset
-			// (when the sun's upper edge disappears below the horizon).
-			90.833333
-		);
+		// Get solar information for today at the specified location.
+		// date_sun_info() returns an array with sunrise, sunset, and other
+		// solar position timestamps. This replaces the deprecated
+		// date_sunset() function (deprecated in PHP 8.1).
+		$sun_info = date_sun_info( $now->getTimestamp(), $latitude, $longitude );
 
-		// If sunset calculation fails (e.g., polar regions), default to false.
+		// If sunset calculation fails or returns a non-numeric value
+		// (e.g., polar regions where sun doesn't set — returns true/false
+		// instead of a timestamp), default to false.
 		// This ensures we don't incorrectly advance the date.
-		if ( false === $sunset_timestamp ) {
+		if ( ! is_int( $sun_info['sunset'] ) ) {
 			return false;
 		}
 
-		return $now->getTimestamp() >= $sunset_timestamp;
+		return $now->getTimestamp() >= $sun_info['sunset'];
 	}
 
 	/**

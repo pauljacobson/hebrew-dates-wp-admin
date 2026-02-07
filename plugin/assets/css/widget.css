@@ -1,0 +1,62 @@
+/**
+ * Hebrew Dates Admin Dashboard Widget Styles
+ *
+ * @package Hebrew_Dates_Admin
+ * @since   1.0.0
+ */
+
+/* Main content area: date text and icon side by side. */
+.hebrew-date-content {
+	display: flex;
+	align-items: center;
+	justify-content: space-around;
+}
+
+/* Date text container. */
+.hebrew-date-text {
+	text-align: center;
+}
+
+/* Primary display: Hebrew date in Hebrew characters. */
+.hebrew-date-primary {
+	font-size: 2em;
+	direction: rtl;
+	margin: 0.25em 0;
+	font-family: 'Times New Roman', serif;
+}
+
+/* Transliterated Hebrew date in Latin characters. */
+.hebrew-date-transliterated {
+	font-size: 1.1em;
+	color: #666;
+	margin: 0.25em 0;
+}
+
+/* Calendar icon. */
+.hebrew-date-icon img {
+	width: 64px;
+	height: 64px;
+}
+
+/* Events section: holidays and special days. */
+.hebrew-date-events {
+	text-align: center;
+	margin-top: 1em;
+	padding-top: 0.5em;
+	border-top: 1px solid #eee;
+}
+
+/* Individual event/holiday entry. */
+.hebrew-date-events p {
+	font-size: 0.95em;
+	color: #0073aa;
+	margin: 0.25em 0;
+	font-style: italic;
+}
+
+/* Error state. */
+.hebrew-date-error {
+	text-align: center;
+	color: #666;
+	font-style: italic;
+}
