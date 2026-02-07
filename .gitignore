@@ -1,6 +1,12 @@
 # Build artifacts
 *.zip
 
+# Node.js dependencies
+node_modules/
+
+# WordPress scripts build output
+plugin/build/
+
 # macOS
 .DS_Store
 

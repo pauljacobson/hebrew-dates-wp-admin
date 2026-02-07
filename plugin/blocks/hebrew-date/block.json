@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "hebrew-dates/hebrew-date",
+  "version": "1.1.0",
+  "title": "Hebrew Date",
+  "category": "widgets",
+  "icon": "calendar-alt",
+  "description": "Displays the current Hebrew date with optional transliteration, Gregorian date, and Jewish holidays/events.",
+  "keywords": [ "hebrew", "jewish", "date", "calendar", "holiday" ],
+  "textdomain": "hebrew-dates-admin",
+  "attributes": {
+    "showEvents": {
+      "type": "boolean",
+      "default": true
+    },
+    "showGregorianDate": {
+      "type": "boolean",
+      "default": false
+    },
+    "showTransliteration": {
+      "type": "boolean",
+      "default": true
+    },
+    "textAlignment": {
+      "type": "string",
+      "default": "center",
+      "enum": [ "left", "center", "right" ]
+    }
+  },
+  "supports": {
+    "html": false,
+    "align": [ "wide", "full" ],
+    "typography": {
+      "fontSize": true,
+      "fontFamily": true,
+      "fontWeight": true,
+      "fontStyle": true,
+      "lineHeight": true,
+      "textDecoration": true,
+      "textTransform": true,
+      "letterSpacing": true
+    },
+    "color": {
+      "text": true,
+      "background": true,
+      "gradients": true,
+      "link": false
+    },
+    "spacing": {
+      "padding": true,
+      "margin": true
+    }
+  },
+  "example": {
+    "attributes": {
+      "showEvents": true,
+      "showGregorianDate": false,
+      "showTransliteration": true,
+      "textAlignment": "center"
+    }
+  },
+  "editorScript": "file:./src/index.js",
+  "editorStyle": "file:./src/editor.scss",
+  "style": "file:./src/style.scss",
+  "render": "file:./render.php"
+}

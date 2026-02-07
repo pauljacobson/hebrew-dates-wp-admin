@@ -1,0 +1,80 @@
+/**
+ * Hebrew Date block styles.
+ *
+ * Applied on both the front end and in the editor.
+ * The root class .wp-block-hebrew-dates-hebrew-date is
+ * automatically added by WordPress via get_block_wrapper_attributes().
+ *
+ * Design approach:
+ * - Uses currentColor and opacity for sub-elements so styles adapt
+ *   to whatever text/background colors the user chooses via block supports.
+ * - No hardcoded font families — typography is controlled entirely
+ *   through block supports and the Site Editor.
+ * - Relative font sizes provide a visual hierarchy that scales with
+ *   the user's chosen base font size.
+ *
+ * @package Hebrew_Dates_Admin
+ * @since   1.1.0
+ */
+
+.wp-block-hebrew-dates-hebrew-date {
+
+	// Hebrew date in Hebrew characters — primary display.
+	// dir="rtl" is set in the HTML for proper character ordering.
+	&__hebrew {
+		font-size: 1.8em;
+		margin: 0.25em 0;
+	}
+
+	// Transliterated date in Latin characters.
+	&__transliterated {
+		font-size: 1em;
+		opacity: 0.7;
+		margin: 0.25em 0;
+	}
+
+	// Gregorian date display.
+	&__gregorian {
+		font-size: 0.9em;
+		opacity: 0.6;
+		margin: 0.25em 0;
+	}
+
+	// Events/holidays container.
+	// Uses currentColor for the border so it adapts to the
+	// user's chosen text color automatically.
+	&__events {
+		margin-top: 0.75em;
+		padding-top: 0.5em;
+		border-top: 1px solid currentColor;
+		opacity: 0.8;
+	}
+
+	// Individual event/holiday entry.
+	&__event {
+		font-size: 0.9em;
+		font-style: italic;
+		margin: 0.25em 0;
+	}
+
+	// Error state — shown when the API is unavailable.
+	&__error {
+		font-style: italic;
+		opacity: 0.6;
+	}
+
+	// Text alignment utility classes.
+	// These match the has-text-align-* convention used by
+	// WordPress core blocks (e.g., core/paragraph).
+	&.has-text-align-left {
+		text-align: left;
+	}
+
+	&.has-text-align-center {
+		text-align: center;
+	}
+
+	&.has-text-align-right {
+		text-align: right;
+	}
+}
