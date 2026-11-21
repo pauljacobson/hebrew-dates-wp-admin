@@ -6,17 +6,12 @@
  * text alignment. Typography, color, and spacing controls are provided
  * automatically by WordPress via the block supports declared in block.json.
  *
- * @package Hebrew_Dates_Admin
  * @since   1.1.0
  */
 
 import { __ } from '@wordpress/i18n';
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
-import {
-	PanelBody,
-	ToggleControl,
-	SelectControl,
-} from '@wordpress/components';
+import { PanelBody, ToggleControl, SelectControl } from '@wordpress/components';
 import ServerSideRender from '@wordpress/server-side-render';
 
 /**
@@ -121,10 +116,7 @@ export default function Edit( { attributes, setAttributes } ) {
 				>
 					<SelectControl
 						__nextHasNoMarginBottom
-						label={ __(
-							'Text alignment',
-							'hebrew-dates-admin'
-						) }
+						label={ __( 'Text alignment', 'hebrew-dates-admin' ) }
 						value={ textAlignment }
 						options={ [
 							{
@@ -155,6 +147,7 @@ export default function Edit( { attributes, setAttributes } ) {
 				<ServerSideRender
 					block="hebrew-dates/hebrew-date"
 					attributes={ attributes }
+					skipBlockSupportAttributes
 				/>
 			</div>
 		</>

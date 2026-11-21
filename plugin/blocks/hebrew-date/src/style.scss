@@ -41,12 +41,12 @@
 	}
 
 	// Events/holidays container.
-	// Uses currentColor for the border so it adapts to the
+	// Uses currentcolor for the border so it adapts to the
 	// user's chosen text color automatically.
 	&__events {
 		margin-top: 0.75em;
 		padding-top: 0.5em;
-		border-top: 1px solid currentColor;
+		border-top: 1px solid currentcolor;
 		opacity: 0.8;
 	}
 

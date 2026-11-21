@@ -21,8 +21,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Instantiate the API client and fetch today's Hebrew date.
 // Hebcal_API is already loaded via require_once in the main plugin file.
+$now    = current_datetime();
 $api    = new Hebcal_API();
-$result = $api->get_hebrew_date();
+$result = $api->get_hebrew_date( $now );
 
 // Extract display attributes with defaults.
 $show_events          = $attributes['showEvents'] ?? true;
@@ -53,7 +54,7 @@ $wrapper_attributes = get_block_wrapper_attributes( array(
 <div <?php echo $wrapper_attributes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by get_block_wrapper_attributes(). ?>>
 	<?php if ( $result['success'] ) : ?>
 
-		<p class="wp-block-hebrew-dates-hebrew-date__hebrew" dir="rtl">
+		<p class="wp-block-hebrew-dates-hebrew-date__hebrew" lang="he" dir="rtl">
 			<?php echo esc_html( $result['hebrew'] ); ?>
 		</p>
 
@@ -66,10 +67,8 @@ $wrapper_attributes = get_block_wrapper_attributes( array(
 		<?php if ( $show_gregorian_date ) : ?>
 			<p class="wp-block-hebrew-dates-hebrew-date__gregorian">
 				<?php
-				// Use wp_date() with the site's configured date format
-				// and timezone, matching the Gregorian date to the same
-				// timezone context as the Hebrew date.
-				echo esc_html( wp_date( get_option( 'date_format' ) ) );
+				// Use the same clock reading as the Hebrew date.
+				echo esc_html( wp_date( get_option( 'date_format' ), $now->getTimestamp(), $now->getTimezone() ) );
 				?>
 			</p>
 		<?php endif; ?>

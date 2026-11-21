@@ -4,7 +4,6 @@
  * Registers the hebrew-dates/hebrew-date block using metadata
  * from block.json, with the Edit and save components.
  *
- * @package Hebrew_Dates_Admin
  * @since   1.1.0
  */
 

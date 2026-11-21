@@ -24,23 +24,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  * 2. Checks for cached data in WordPress transients (separate caches for day/evening)
  * 3. If no cache, fetches from Hebcal API with gs=on parameter when after sunset
  * 4. Parses JSON response and extracts Hebrew date, transliteration, and events
- * 5. Caches successful results (up to 2 API calls per day: one for day, one for evening)
+ * 5. Caches successful results and briefly backs off after a failed request
  * 6. Returns structured array with date information or error state
  *
  * ## Sunset-aware behavior:
  * - Hebrew dates begin at sunset, not midnight
  * - Uses PHP's date_sun_info() to calculate sunset for the site's location
- * - Location is automatically derived from WordPress timezone setting
- *   using PHP's DateTimeZone::getLocation() for accurate coordinates
+ * - Uses representative coordinates for the site's timezone
  * - Falls back to Jerusalem for UTC offset timezones (e.g., "UTC+2")
  * - Coordinates can be overridden via WordPress filters for precise control
  * - Maintains separate cache entries for before/after sunset
  * - DST is handled automatically by PHP's DateTime functions
- *
- * ## Caching strategy:
- * - Up to 2 API calls per day per site (before sunset + after sunset)
- * - Provides resilience if Hebcal API is temporarily unavailable
- * - Well within Hebcal's rate limit (90 requests/10 seconds)
  */
 class Hebcal_API {
 
@@ -59,11 +53,25 @@ class Hebcal_API {
 	const CACHE_DURATION = DAY_IN_SECONDS;
 
 	/**
-	 * Transient key prefix for cached Hebrew dates.
+	 * Seconds to wait before retrying a failed request.
+	 *
+	 * @var int
+	 */
+	const RETRY_DELAY = 30;
+
+	/**
+	 * Transient key prefix for validated Hebrew dates.
 	 *
 	 * @var string
 	 */
-	const CACHE_KEY_PREFIX = 'hebrew_date_';
+	const CACHE_KEY_PREFIX = 'hebrew_dates_admin_v2_';
+
+	/**
+	 * Results shared by widget and block instances during this request.
+	 *
+	 * @var array
+	 */
+	private static $request_results = array();
 
 	/**
 	 * Fallback latitude for sunset calculation (Jerusalem).
@@ -125,6 +133,7 @@ class Hebcal_API {
 	 * Accounts for the Hebrew day beginning at sunset by checking
 	 * the current time against sunset and requesting the appropriate date.
 	 *
+	 * @param DateTimeImmutable|null $now Time in the site timezone. Defaults to the current time.
 	 * @return array {
 	 *     Hebrew date information.
 	 *
@@ -135,89 +144,39 @@ class Hebcal_API {
 	 *     @type string $error         Error message if $success is false.
 	 * }
 	 */
-	public function get_hebrew_date() {
-		// Get today's date in site's timezone.
-		$today = $this->get_today_date();
+	public function get_hebrew_date( ?DateTimeImmutable $now = null ) {
+		$now   = $now ?? current_datetime();
+		$today = $now->format( 'Y-m-d' );
 
 		// Determine if we're after sunset (Hebrew day has advanced).
-		$after_sunset = $this->is_after_sunset();
+		$after_sunset = $this->is_after_sunset( $now, $today );
 
-		// Check cache first (separate caches for before/after sunset).
-		$cached = $this->get_cached_date( $today, $after_sunset );
-		if ( false !== $cached ) {
-			return $cached;
+		$site_id   = get_current_blog_id();
+		$suffix    = $after_sunset ? '_evening' : '_day';
+		$cache_key = self::CACHE_KEY_PREFIX . $today . $suffix;
+		$retry_key = $cache_key . '_retry';
+
+		if ( isset( self::$request_results[ $site_id ][ $cache_key ] ) ) {
+			return self::$request_results[ $site_id ][ $cache_key ];
 		}
 
-		// Fetch from API with sunset awareness.
-		$result = $this->fetch_from_api( $today, $after_sunset );
-
-		// Cache successful results.
-		if ( $result['success'] ) {
-			$this->cache_date( $today, $after_sunset, $result );
+		// Keep failures separate so a failed request cannot overwrite a successful lookup.
+		$result = get_transient( $cache_key );
+		if ( false === $result ) {
+			$result = get_transient( $retry_key );
 		}
 
+		if ( false === $result ) {
+			$result = $this->fetch_from_api( $today, $after_sunset );
+			if ( $result['success'] ) {
+				set_transient( $cache_key, $result, self::CACHE_DURATION );
+			} else {
+				set_transient( $retry_key, $result, self::RETRY_DELAY );
+			}
+		}
+
+		self::$request_results[ $site_id ][ $cache_key ] = $result;
 		return $result;
-	}
-
-	/**
-	 * Get today's date formatted for the API.
-	 *
-	 * Uses WordPress's wp_date() function which respects the site's
-	 * configured timezone (Settings > General > Timezone).
-	 *
-	 * @return string Date in YYYY-MM-DD format.
-	 */
-	private function get_today_date() {
-		// wp_date() is timezone-aware using WordPress settings.
-		// This ensures the Hebrew date matches the site's local date,
-		// not the server's timezone.
-		return wp_date( 'Y-m-d' );
-	}
-
-	/**
-	 * Get cached Hebrew date data.
-	 *
-	 * Uses separate cache keys for before/after sunset to ensure
-	 * the correct Hebrew date is returned based on time of day.
-	 *
-	 * @param string $date         Date in YYYY-MM-DD format.
-	 * @param bool   $after_sunset Whether current time is after sunset.
-	 * @return array|false Cached data array or false if not cached.
-	 */
-	private function get_cached_date( $date, $after_sunset ) {
-		$cache_key = $this->build_cache_key( $date, $after_sunset );
-		return get_transient( $cache_key );
-	}
-
-	/**
-	 * Cache Hebrew date data.
-	 *
-	 * Stores data with a cache key that includes the sunset state,
-	 * ensuring before-sunset and after-sunset dates are cached separately.
-	 *
-	 * @param string $date         Date in YYYY-MM-DD format.
-	 * @param bool   $after_sunset Whether current time is after sunset.
-	 * @param array  $data         Data to cache.
-	 * @return bool True if cached successfully.
-	 */
-	private function cache_date( $date, $after_sunset, $data ) {
-		$cache_key = $this->build_cache_key( $date, $after_sunset );
-		return set_transient( $cache_key, $data, self::CACHE_DURATION );
-	}
-
-	/**
-	 * Build a cache key that includes sunset state.
-	 *
-	 * Creates unique cache keys for before/after sunset to ensure
-	 * the correct Hebrew date is served throughout the day.
-	 *
-	 * @param string $date         Date in YYYY-MM-DD format.
-	 * @param bool   $after_sunset Whether current time is after sunset.
-	 * @return string Cache key for WordPress transient.
-	 */
-	private function build_cache_key( $date, $after_sunset ) {
-		$suffix = $after_sunset ? '_evening' : '_day';
-		return self::CACHE_KEY_PREFIX . $date . $suffix;
 	}
 
 	/**
@@ -259,7 +218,9 @@ class Hebcal_API {
 		$response = wp_remote_get(
 			esc_url_raw( $url ),
 			array(
-				'timeout' => 10, // 10 second timeout.
+				'timeout'             => 3,
+				// Read one extra byte so the body check can detect truncation.
+				'limit_response_size' => self::MAX_RESPONSE_SIZE + 1,
 			)
 		);
 
@@ -298,35 +259,22 @@ class Hebcal_API {
 			);
 		}
 
-		$data = json_decode( $body, true );
+		$data   = json_decode( $body, true );
+		$hebrew = $data['hebrew'] ?? '';
+		$day    = $data['hd'] ?? 0;
+		$month  = $data['hm'] ?? '';
+		$year   = $data['hy'] ?? 0;
+		$month  = is_string( $month ) ? sanitize_text_field( $month ) : '';
 
-		// Validate response structure.
-		// We check for the required fields that we use: 'hebrew' for the
-		// Hebrew-character date string, and the component fields for
-		// building the transliterated version.
-		if ( ! is_array( $data ) || ! isset( $data['hebrew'] ) ) {
+		// Validate the Hebrew date and the components of its transliteration before caching.
+		if ( ! is_string( $hebrew ) || '' === trim( $hebrew ) ||
+			! is_int( $day ) || $day < 1 || $day > 30 ||
+			'' === $month || ! is_int( $year ) || $year < 1 ) {
 			return array(
 				'success' => false,
-				'error'   => __( 'Invalid API response format', 'hebrew-dates-admin' ),
+				'error'   => __( 'Invalid date in API response', 'hebrew-dates-admin' ),
 			);
 		}
-
-		// Validate that the Hebrew date string is actually a string.
-		if ( ! is_string( $data['hebrew'] ) ) {
-			return array(
-				'success' => false,
-				'error'   => __( 'Invalid API response: hebrew field is not a string', 'hebrew-dates-admin' ),
-			);
-		}
-
-		// Build transliterated date string from components.
-		// Format: "1 Tevet 5785"
-		$transliterated = sprintf(
-			'%d %s %d',
-			isset( $data['hd'] ) ? (int) $data['hd'] : 0,
-			isset( $data['hm'] ) ? sanitize_text_field( (string) $data['hm'] ) : '',
-			isset( $data['hy'] ) ? (int) $data['hy'] : 0
-		);
 
 		// Sanitize events: enforce string type, cap count and length.
 		// The Hebcal API returns events as a simple array of strings
@@ -358,8 +306,8 @@ class Hebcal_API {
 		// Return structured result.
 		return array(
 			'success'        => true,
-			'hebrew'         => $data['hebrew'],
-			'transliterated' => $transliterated,
+			'hebrew'         => $hebrew,
+			'transliterated' => sprintf( '%d %s %d', $day, $month, $year ),
 			'events'         => $events,
 		);
 	}
@@ -371,44 +319,36 @@ class Hebcal_API {
 	 * geographic coordinates. The Hebrew day begins at sunset, so after
 	 * sunset the Hebrew date advances to the next day.
 	 *
-	 * Location coordinates are automatically derived from the WordPress
-	 * timezone setting using PHP's DateTimeZone::getLocation(). This ensures
-	 * sunset is calculated for the site's configured location. DST is handled
-	 * automatically by PHP's DateTime functions.
+	 * Uses representative coordinates from the site's timezone. DateTime
+	 * applies the site's daylight saving rules when checking the sunset date.
 	 *
 	 * Coordinates can be overridden using the 'hebrew_dates_admin_latitude'
 	 * and 'hebrew_dates_admin_longitude' filters for precise control.
 	 *
+	 * @param DateTimeImmutable $now  Current time in the site timezone.
+	 * @param string            $date Local date in YYYY-MM-DD format.
 	 * @return bool True if current time is after sunset, false otherwise.
 	 */
-	private function is_after_sunset() {
-		// Get current time in WordPress timezone.
-		// DateTime automatically handles DST based on the timezone's rules.
-		$timezone = wp_timezone();
-		$now      = new DateTime( 'now', $timezone );
-
+	private function is_after_sunset( DateTimeImmutable $now, string $date ) {
 		// Get coordinates from the WordPress timezone.
-		$coordinates = $this->get_timezone_coordinates( $timezone );
+		$coordinates = $this->get_timezone_coordinates( $now->getTimezone() );
 
 		// Allow filter overrides for precise location control.
 		$latitude  = apply_filters( 'hebrew_dates_admin_latitude', $coordinates['latitude'] );
 		$longitude = apply_filters( 'hebrew_dates_admin_longitude', $coordinates['longitude'] );
 
-		// Get solar information for today at the specified location.
-		// date_sun_info() returns an array with sunrise, sunset, and other
-		// solar position timestamps. This replaces the deprecated
-		// date_sunset() function (deprecated in PHP 8.1).
-		$sun_info = date_sun_info( $now->getTimestamp(), $latitude, $longitude );
-
-		// If sunset calculation fails or returns a non-numeric value
-		// (e.g., polar regions where sun doesn't set — returns true/false
-		// instead of a timestamp), default to false.
-		// This ensures we don't incorrectly advance the date.
-		if ( ! is_int( $sun_info['sunset'] ) ) {
-			return false;
+		// PHP selects the calculation date in its default timezone (UTC in WordPress).
+		// Near the date line, the site's sunset can come from an adjacent calculation date.
+		$anchor = new DateTimeImmutable( $date . ' 12:00:00' );
+		foreach ( array( $anchor, $anchor->modify( '-1 day' ), $anchor->modify( '+1 day' ) ) as $candidate ) {
+			$sunset = date_sun_info( $candidate->getTimestamp(), $latitude, $longitude )['sunset'];
+			if ( is_int( $sunset ) && $date === $now->setTimestamp( $sunset )->format( 'Y-m-d' ) ) {
+				return $now->getTimestamp() >= $sunset;
+			}
 		}
 
-		return $now->getTimestamp() >= $sun_info['sunset'];
+		// When there is no sunset on the local date, advance at local midnight.
+		return false;
 	}
 
 	/**

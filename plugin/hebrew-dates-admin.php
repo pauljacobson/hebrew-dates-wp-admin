@@ -8,7 +8,7 @@
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: hebrew-dates-admin
- * Requires at least: 6.0
+ * Requires at least: 6.6
  * Requires PHP: 8.0
  *
  * @package Hebrew_Dates_Admin
@@ -171,7 +171,7 @@ function hebrew_dates_admin_display_widget() {
 		// Primary display: Hebrew date in Hebrew characters.
 		// Using RTL direction for proper Hebrew display.
 		printf(
-			'<p class="hebrew-date-primary">%s</p>',
+			'<p class="hebrew-date-primary" lang="he" dir="rtl">%s</p>',
 			esc_html( $result['hebrew'] )
 		);
 
