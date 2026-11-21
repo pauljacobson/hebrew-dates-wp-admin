@@ -1,0 +1,19 @@
+/**
+ * Hebrew Date block editor-only styles.
+ *
+ * Applied only in the block editor, not on the front end.
+ * Handles ServerSideRender loading states and any
+ * editor-specific visual adjustments.
+ *
+ * @package Hebrew_Dates_Admin
+ * @since   1.1.0
+ */
+
+.wp-block-hebrew-dates-hebrew-date {
+
+	// Ensure the ServerSideRender component's loading spinner
+	// is visible and properly spaced within the block wrapper.
+	.components-server-side-render {
+		min-height: 80px;
+	}
+}

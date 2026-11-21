@@ -1,0 +1,43 @@
+{
+  "name": "hebrew-dates-admin",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Hebrew Dates Admin WordPress plugin with dashboard widget and Gutenberg block",
+  "author": "Paul Jacobson",
+  "license": "GPL-2.0-or-later",
+  "files": [
+    "hebrew-dates-admin.php",
+    "assets/",
+    "build/",
+    "includes/"
+  ],
+  "devDependencies": {
+    "@wordpress/scripts": "^31.4.0"
+  },
+  "scripts": {
+    "build": "wp-scripts build --webpack-copy-php --source-path=blocks",
+    "start": "wp-scripts start --webpack-copy-php --source-path=blocks",
+    "package": "npm run build && node scripts/check-block-build.cjs && wp-scripts plugin-zip",
+    "lint:js": "wp-scripts lint-js",
+    "lint:css": "wp-scripts lint-style"
+  },
+  "eslintConfig": {
+    "root": true,
+    "extends": "plugin:@wordpress/eslint-plugin/recommended",
+    "parserOptions": {
+      "requireConfigFile": false,
+      "babelOptions": {
+        "presets": ["@wordpress/babel-preset-default"]
+      }
+    },
+    "settings": {
+      "import/core-modules": [
+        "@wordpress/block-editor",
+        "@wordpress/blocks",
+        "@wordpress/components",
+        "@wordpress/i18n",
+        "@wordpress/server-side-render"
+      ]
+    }
+  }
+}

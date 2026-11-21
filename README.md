@@ -1,6 +1,6 @@
-# Hebrew Dates Admin Widget
+# Hebrew Dates Admin
 
-A WordPress plugin that displays the current Hebrew date in the WordPress Admin dashboard.
+A WordPress plugin that displays the current Hebrew date in a dashboard widget and a Hebrew Date block.
 
 ## Why Hebrew Dates?
 
@@ -13,11 +13,10 @@ The Hebrew calendar is lunisolar and doesn't align with the Gregorian calendar, 
 - Displays the current Hebrew date in Hebrew characters (e.g., "א׳ בְּטֵבֵת תשפ״ה")
 - Shows transliterated date below for accessibility (e.g., "1 Tevet 5785")
 - Displays Jewish holidays and events when applicable
-- **Sunset-aware**: Hebrew date advances at sunset (when the Jewish day begins), not at midnight
-- **Location-aware**: Sunset time is automatically calculated based on your WordPress timezone setting
+- Advances the Hebrew date at the estimated local sunset
 - Respects WordPress timezone settings and DST automatically
-- Caches API responses for 24 hours for performance
-- Graceful error handling when API is unavailable
+- Caches successful API responses for up to 24 hours
+- Waits 30 seconds before retrying a failed API request for the same date and sunset period
 
 ## Screenshot
 
@@ -27,15 +26,15 @@ The Hebrew calendar is lunisolar and doesn't align with the Gregorian calendar, 
 
 ## Installation
 
-1. Download or clone this repository
-2. Upload the `hebrew-dates-wp-admin` folder to `/wp-content/plugins/`
-3. Activate the plugin through the 'Plugins' menu in WordPress
-4. Visit your Dashboard to see the Hebrew Date widget
+1. Get a built `hebrew-dates-admin.zip` or build it with the packaging steps below.
+2. In WordPress, go to **Plugins → Add New Plugin → Upload Plugin** and upload the ZIP.
+3. Activate **Hebrew Dates Admin**.
+4. Open the Dashboard to see the widget. In the block editor, search for **Hebrew Date** to add the block.
 
 ## Requirements
 
-- WordPress 5.0 or higher
-- PHP 7.4 or higher
+- WordPress 6.6 or higher
+- PHP 8.0 or higher
 
 ## AI Tools Used
 
@@ -95,8 +94,12 @@ hebrew-dates-wp-admin/
 │   ├── hebrew-dates-admin.php     # Main plugin file
 │   ├── includes/
 │   │   └── class-hebcal-api.php   # Hebcal API client with caching
+│   ├── blocks/                    # Block source
+│   ├── build/                     # Generated block files (after npm run build)
 │   └── assets/
 │       └── icon.svg               # Hebrew calendar icon
+├── tests/
+│   └── hebcal-api.php              # Date boundary and API regression tests
 ├── docs/
 │   ├── hebrew-date-approaches.md  # Analysis of implementation options
 │   ├── implementation-plan.md     # Detailed development plan
@@ -107,32 +110,48 @@ hebrew-dates-wp-admin/
 
 ## Packaging for Distribution
 
-To create a distributable zip file:
+From a checkout, run:
 
 ```bash
-cd plugin && zip -r ../hebrew-dates-admin.zip . && cd ..
+cd plugin
+npm ci
+npm run package
 ```
 
-Then upload `hebrew-dates-admin.zip` via WordPress Admin > Plugins > Add New > Upload Plugin.
+The packaging command builds the block and checks that the files referenced by its metadata exist. It creates `plugin/hebrew-dates-admin.zip` with the compiled block, widget assets, and PHP files.
+
+### Development checks
+
+From the repository root, run:
+
+```bash
+php tests/hebcal-api.php
+npm --prefix plugin run lint:js
+npm --prefix plugin run lint:css
+```
+
+The PHP tests use fixed local times and simulated Hebcal responses.
 
 ## How It Works
 
 1. **On dashboard load**: Plugin hooks into `wp_dashboard_setup` to register the widget
 2. **Widget display**: Callback function instantiates `Hebcal_API` class
-3. **Sunset calculation**: Determines if it's after sunset using coordinates derived from WordPress timezone (Hebrew days begin at sunset)
+3. **Sunset calculation**: Finds the sunset that falls on the site's local calendar date
 4. **Cache check**: Class checks for cached data in WordPress transients (separate caches for before/after sunset)
 5. **API call** (if needed): Fetches from `https://www.hebcal.com/converter` with current date and sunset flag if applicable
 6. **Response parsing**: Extracts Hebrew string, builds transliterated string, captures events
-7. **Caching**: Stores successful response for 24 hours
+7. **Caching**: Stores successful responses for up to 24 hours and failed responses for 30 seconds
 8. **Output**: Renders escaped HTML with Hebrew date, transliteration, and any events
 
 ## Location & Sunset Calculation
 
-The plugin automatically determines your location from your WordPress timezone setting (`Settings > General > Timezone`). This is used to calculate sunset time accurately for your area.
+The plugin estimates sunset using the timezone selected under **Settings → General → Timezone**.
 
-- **Named timezones** (e.g., "America/New_York", "Europe/London"): Coordinates are automatically derived from PHP's timezone database
-- **UTC offsets** (e.g., "UTC+2"): Falls back to Jerusalem coordinates since UTC offsets have no geographic location
-- **DST handling**: Daylight Saving Time is handled automatically by PHP's DateTime functions
+- **Named timezones** use representative coordinates from PHP's timezone database. Use the filters below if you need the sunset for a specific location.
+- **UTC offsets** use Jerusalem coordinates by default. The plugin still determines the date and time in the site's configured offset.
+- **No local sunset** uses local midnight as the date boundary. This applies during polar day and polar night.
+
+On sites with a full-page cache, the block updates when WordPress next renders the page. Configure the page cache to expire by sunset and local midnight if visitors need the date to change at those times.
 
 ### Advanced: Custom Location
 
