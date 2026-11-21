@@ -64,10 +64,14 @@
 	}
 
 	// Text alignment utility classes.
-	// These match the has-text-align-* convention used by
-	// WordPress core blocks (e.g., core/paragraph).
+	// Keep the physical Left and Right choices when WordPress loads the RTL build.
+	&.has-text-align-left,
+	&.has-text-align-right {
+		text-align: var(--hebrew-dates-text-align);
+	}
+
 	&.has-text-align-left {
-		text-align: left;
+		--hebrew-dates-text-align: left;
 	}
 
 	&.has-text-align-center {
@@ -75,6 +79,6 @@
 	}
 
 	&.has-text-align-right {
-		text-align: right;
+		--hebrew-dates-text-align: right;
 	}
 }
